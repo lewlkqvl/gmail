@@ -106,6 +106,22 @@ class AutoLoginService {
   }
 
   /**
+   * 保存错误截图
+   */
+  async saveErrorScreenshot(page, email) {
+    try {
+      const timestamp = Date.now();
+      const screenshotPath = `/tmp/autologin_${email.replace('@', '_at_')}_${timestamp}.png`;
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      console.log(`[AutoLogin] 已保存错误截图: ${screenshotPath}`);
+      return screenshotPath;
+    } catch (e) {
+      console.error('[AutoLogin] 保存截图失败:', e.message);
+      return null;
+    }
+  }
+
+  /**
    * 自动登录单个账号
    * @param {string} email - Gmail 邮箱
    * @param {string} password - Gmail 密码
@@ -149,6 +165,24 @@ class AutoLoginService {
 
       const pages = await this.browser.pages();
       const page = pages[0] || await this.browser.newPage();
+
+      // 覆盖 prompt、alert、confirm 函数，防止阻塞
+      await page.evaluateOnNewDocument(() => {
+        window.alert = () => {};
+        window.prompt = () => null;
+        window.confirm = () => true;
+      });
+
+      // 监听控制台消息和错误
+      page.on('console', msg => {
+        if (msg.type() === 'error') {
+          console.log(`[Browser Error] ${msg.text()}`);
+        }
+      });
+
+      page.on('pageerror', error => {
+        console.log(`[Page Error] ${error.message}`);
+      });
 
       // 设置用户代理，使其更像真实浏览器
       await page.setUserAgent(
@@ -204,11 +238,33 @@ class AutoLoginService {
       // 等待密码输入框出现
       await this.delay(3000);
 
+      log('检查是否有错误提示...');
+
+      // 检查邮箱是否有错误
+      try {
+        const errorElement = await page.$('[jsname="B34EJ"]'); // Google 错误提示的选择器
+        if (errorElement) {
+          const errorText = await page.evaluate(el => el.textContent, errorElement);
+          if (errorText) {
+            throw new Error(`邮箱验证失败: ${errorText}`);
+          }
+        }
+      } catch (e) {
+        // 如果没有错误元素，继续
+      }
+
       log('填写密码...');
 
       // 步骤2: 填写密码
       const passwordInputSelector = 'input[type="password"]';
-      await page.waitForSelector(passwordInputSelector, { timeout: 10000 });
+      try {
+        await page.waitForSelector(passwordInputSelector, { timeout: 10000 });
+      } catch (e) {
+        // 截图以便调试
+        await this.saveErrorScreenshot(page, email);
+        throw new Error('未找到密码输入框，可能是邮箱验证失败或页面加载问题');
+      }
+
       await page.type(passwordInputSelector, password, { delay: 100 });
 
       await this.delay(500);
@@ -240,15 +296,46 @@ class AutoLoginService {
       // 等待验证和授权页面
       await this.delay(5000);
 
+      log('检查密码验证结果...');
+
+      // 检查密码是否错误
+      const currentUrl = page.url();
+
+      // 检查是否还在密码页面（可能密码错误）
+      if (currentUrl.includes('/signin/v2/challenge/pwd')) {
+        try {
+          const errorElement = await page.$('[jsname="B34EJ"], [aria-live="assertive"]');
+          if (errorElement) {
+            const errorText = await page.evaluate(el => el.textContent, errorElement);
+            if (errorText && (errorText.includes('Wrong password') || errorText.includes('密码错误') || errorText.includes('Incorrect password'))) {
+              throw new Error(`密码错误: ${email}`);
+            }
+          }
+        } catch (e) {
+          if (e.message.includes('密码错误')) {
+            throw e;
+          }
+        }
+      }
+
       log('等待授权页面...');
 
       // 检查是否需要双因素验证
-      const currentUrl = page.url();
       if (currentUrl.includes('challenge') || currentUrl.includes('verify')) {
         log('⚠️ 需要额外验证（2FA/验证码），请手动完成...');
-        // 等待用户手动完成验证
-        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });
-        await this.delay(2000);
+        log('提示: 在浏览器中完成验证后，系统会自动继续');
+
+        // 等待用户手动完成验证（最多2分钟）
+        try {
+          await page.waitForNavigation({
+            waitUntil: 'networkidle2',
+            timeout: 120000
+          });
+          await this.delay(2000);
+          log('验证完成，继续授权流程...');
+        } catch (e) {
+          throw new Error('等待验证超时（2分钟），请确保及时完成验证');
+        }
       }
 
       // 步骤3: 点击"继续"或"允许"授权
@@ -335,6 +422,18 @@ class AutoLoginService {
 
     } catch (error) {
       log(`❌ 自动登录失败: ${error.message}`);
+
+      // 尝试保存错误截图
+      if (this.browser) {
+        try {
+          const pages = await this.browser.pages();
+          if (pages.length > 0) {
+            await this.saveErrorScreenshot(pages[0], email);
+          }
+        } catch (e) {
+          console.error('[AutoLogin] 无法保存错误截图:', e.message);
+        }
+      }
 
       // 发生错误时关闭浏览器
       await this.closeBrowser();
