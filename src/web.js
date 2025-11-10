@@ -16,6 +16,7 @@ const PathHelper = require('./utils/pathHelper');
 const DatabaseService = require('./services/databaseService');
 const GmailService = require('./services/gmailService');
 const ApiService = require('./services/apiService');
+const AutoLoginService = require('./services/autoLoginService');
 
 // Web应用配置
 const WEB_PORT = process.env.WEB_PORT || 3000;
@@ -44,6 +45,10 @@ class WebServer {
       this.gmailService = new GmailService(this.dbService, this.pathHelper);
       await this.gmailService.initialize();
       console.log('✅ Gmail 服务初始化成功');
+
+      // 初始化自动登录服务
+      this.autoLoginService = new AutoLoginService(this.gmailService);
+      console.log('✅ 自动登录服务初始化成功');
 
       // 初始化 REST API 服务
       this.apiService = new ApiService(this.gmailService, this.dbService);
@@ -334,6 +339,92 @@ class WebServer {
       }
     });
 
+    // 从文本内容导入账号（支持 email|password 格式）
+    this.app.post('/api/account/importFromText', (req, res) => {
+      try {
+        const { content } = req.body;
+
+        if (!content || typeof content !== 'string') {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request: text content is required'
+          });
+        }
+
+        // 解析文本格式
+        const accounts = AutoLoginService.parseTextFile(content);
+
+        if (accounts.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: '未找到有效的账号信息'
+          });
+        }
+
+        const results = this.dbService.importAccounts(accounts);
+
+        res.json({
+          success: true,
+          results: results,
+          count: accounts.length
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 从文本内容导入并自动登录
+    this.app.post('/api/account/importTextAndAutoLogin', async (req, res) => {
+      try {
+        const { content } = req.body;
+
+        if (!content || typeof content !== 'string') {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request: text content is required'
+          });
+        }
+
+        // 解析文本格式
+        const accounts = AutoLoginService.parseTextFile(content);
+
+        if (accounts.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: '未找到有效的账号信息'
+          });
+        }
+
+        console.log(`从文本解析到 ${accounts.length} 个账号，开始批量自动登录...`);
+
+        // 启动授权服务器
+        await this.startAuthServer();
+
+        // 执行批量自动登录
+        const results = await this.autoLoginService.batchAutoLogin(accounts, (progress) => {
+          console.log(`[${progress.current}/${progress.total}] ${progress.email}: ${progress.message}`);
+        });
+
+        // 关闭授权服务器
+        if (this.authServer) {
+          this.authServer.close();
+          this.authServer = null;
+        }
+
+        res.json({ success: true, results, totalAccounts: accounts.length });
+      } catch (error) {
+        console.error('导入文本并自动登录失败:', error);
+
+        // 确保关闭服务器
+        if (this.authServer) {
+          this.authServer.close();
+          this.authServer = null;
+        }
+
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 获取邮件统计
     this.app.get('/api/gmail/getStats', (req, res) => {
       try {
@@ -344,6 +435,96 @@ class WebServer {
         const stats = this.dbService.getMessageStats(accountId);
         res.json({ success: true, stats });
       } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ==================== 自动登录路由 ====================
+
+    // 批量自动登录
+    this.app.post('/api/account/batchAutoLogin', async (req, res) => {
+      try {
+        const { accounts } = req.body;
+
+        if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
+          return res.status(400).json({ success: false, error: '账号列表为空' });
+        }
+
+        // 验证账号格式
+        for (const account of accounts) {
+          if (!account.email || !account.password) {
+            return res.status(400).json({
+              success: false,
+              error: '账号格式错误：缺少 email 或 password'
+            });
+          }
+        }
+
+        console.log(`开始批量自动登录 ${accounts.length} 个账号...`);
+
+        // 启动授权服务器
+        await this.startAuthServer();
+
+        // 执行批量自动登录
+        const results = await this.autoLoginService.batchAutoLogin(accounts, (progress) => {
+          console.log(`[${progress.current}/${progress.total}] ${progress.email}: ${progress.message}`);
+        });
+
+        // 关闭授权服务器
+        if (this.authServer) {
+          this.authServer.close();
+          this.authServer = null;
+        }
+
+        res.json({ success: true, results });
+      } catch (error) {
+        console.error('批量自动登录失败:', error);
+
+        // 确保关闭服务器
+        if (this.authServer) {
+          this.authServer.close();
+          this.authServer = null;
+        }
+
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 单个账号自动登录
+    this.app.post('/api/account/autoLogin', async (req, res) => {
+      try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+          return res.status(400).json({ success: false, error: '邮箱或密码为空' });
+        }
+
+        console.log(`开始自动登录账号: ${email}`);
+
+        // 启动授权服务器
+        await this.startAuthServer();
+
+        // 执行自动登录
+        const result = await this.autoLoginService.autoLogin(email, password, (message) => {
+          console.log(`${email}: ${message}`);
+        });
+
+        // 关闭授权服务器
+        if (this.authServer) {
+          this.authServer.close();
+          this.authServer = null;
+        }
+
+        res.json(result);
+      } catch (error) {
+        console.error('自动登录失败:', error);
+
+        // 确保关闭服务器
+        if (this.authServer) {
+          this.authServer.close();
+          this.authServer = null;
+        }
+
         res.status(500).json({ success: false, error: error.message });
       }
     });

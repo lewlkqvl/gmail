@@ -14,6 +14,16 @@ out/
 config/credentials.json
 token.json
 
+# Account files (contains passwords)
+accounts.json
+accounts.txt
+my_accounts.json
+my_accounts.txt
+*_accounts.json
+*_accounts.txt
+!accounts_autologin.example.json
+!accounts.example.txt
+
 # Electron store
 electron-store/
 

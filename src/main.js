@@ -9,12 +9,14 @@ const PathHelper = require('./utils/pathHelper');
 const GmailService = require('./services/gmailService');
 const DatabaseService = require('./services/databaseService');
 const ApiService = require('./services/apiService');
+const AutoLoginService = require('./services/autoLoginService');
 
 let mainWindow;
 let pathHelper;
 let gmailService;
 let dbService;
 let apiService;
+let autoLoginService;
 let authServer = null;
 let authBrowser = null; // puppeteer 浏览器实例
 let authInProgress = false; // 授权进行中标记
@@ -441,12 +443,14 @@ function setupIpcHandlers() {
   });
 
   // 导入账号
-  ipcMain.handle('account:import', async () => {
+  ipcMain.handle('account:import', async (event, options = {}) => {
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
         title: '导入账号',
         filters: [
-          { name: 'JSON Files', extensions: ['json'] }
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'Text Files', extensions: ['txt'] },
+          { name: 'All Files', extensions: ['*'] }
         ],
         properties: ['openFile']
       });
@@ -456,16 +460,186 @@ function setupIpcHandlers() {
       }
 
       const fileContent = await fs.readFile(result.filePaths[0], 'utf-8');
-      const accounts = JSON.parse(fileContent);
+      const filePath = result.filePaths[0];
+      let accounts;
 
-      if (!Array.isArray(accounts)) {
-        return { success: false, error: 'Invalid file format' };
+      // 根据文件扩展名判断格式
+      if (filePath.endsWith('.json')) {
+        // JSON 格式
+        accounts = JSON.parse(fileContent);
+        if (!Array.isArray(accounts)) {
+          return { success: false, error: 'Invalid JSON format' };
+        }
+      } else {
+        // 文本格式 (email|password)
+        accounts = AutoLoginService.parseTextFile(fileContent);
+        if (accounts.length === 0) {
+          return { success: false, error: '未找到有效的账号信息' };
+        }
       }
 
       const results = dbService.importAccounts(accounts);
 
       return { success: true, results };
     } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // 批量自动登录授权（从账号数组）
+  ipcMain.handle('account:batchAutoLogin', async (event, accounts) => {
+    try {
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        return { success: false, error: '账号列表为空' };
+      }
+
+      // 验证账号格式
+      for (const account of accounts) {
+        if (!account.email || !account.password) {
+          return { success: false, error: '账号格式错误：缺少 email 或 password' };
+        }
+      }
+
+      console.log(`开始批量自动登录 ${accounts.length} 个账号...`);
+
+      // 先启动授权服务器
+      await startAuthServer();
+
+      // 执行批量自动登录
+      const results = await autoLoginService.batchAutoLogin(accounts, (progress) => {
+        // 向前端发送进度更新
+        if (mainWindow) {
+          mainWindow.webContents.send('autoLogin:progress', progress);
+        }
+      });
+
+      // 关闭授权服务器
+      if (authServer) {
+        authServer.close();
+        authServer = null;
+      }
+
+      return { success: true, results };
+    } catch (error) {
+      console.error('批量自动登录失败:', error);
+
+      // 确保关闭服务器
+      if (authServer) {
+        authServer.close();
+        authServer = null;
+      }
+
+      return { success: false, error: error.message };
+    }
+  });
+
+  // 从文件批量导入并自动登录
+  ipcMain.handle('account:importAndAutoLogin', async () => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: '选择账号文件进行批量自动登录',
+        filters: [
+          { name: 'Text Files', extensions: ['txt'] },
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+      });
+
+      if (result.canceled || !result.filePaths.length) {
+        return { success: false, error: 'User cancelled' };
+      }
+
+      const fileContent = await fs.readFile(result.filePaths[0], 'utf-8');
+      const filePath = result.filePaths[0];
+      let accounts;
+
+      // 根据文件格式解析
+      if (filePath.endsWith('.json')) {
+        accounts = JSON.parse(fileContent);
+        if (!Array.isArray(accounts)) {
+          return { success: false, error: 'Invalid JSON format' };
+        }
+      } else {
+        // 文本格式 (email|password)
+        accounts = AutoLoginService.parseTextFile(fileContent);
+        if (accounts.length === 0) {
+          return { success: false, error: '未找到有效的账号信息' };
+        }
+      }
+
+      console.log(`从文件读取到 ${accounts.length} 个账号，开始批量自动登录...`);
+
+      // 先启动授权服务器
+      await startAuthServer();
+
+      // 执行批量自动登录
+      const results = await autoLoginService.batchAutoLogin(accounts, (progress) => {
+        // 向前端发送进度更新
+        if (mainWindow) {
+          mainWindow.webContents.send('autoLogin:progress', progress);
+        }
+      });
+
+      // 关闭授权服务器
+      if (authServer) {
+        authServer.close();
+        authServer = null;
+      }
+
+      return { success: true, results, totalAccounts: accounts.length };
+    } catch (error) {
+      console.error('导入并自动登录失败:', error);
+
+      // 确保关闭服务器
+      if (authServer) {
+        authServer.close();
+        authServer = null;
+      }
+
+      return { success: false, error: error.message };
+    }
+  });
+
+  // 单个账号自动登录
+  ipcMain.handle('account:autoLogin', async (event, { email, password }) => {
+    try {
+      if (!email || !password) {
+        return { success: false, error: '邮箱或密码为空' };
+      }
+
+      console.log(`开始自动登录账号: ${email}`);
+
+      // 先启动授权服务器
+      await startAuthServer();
+
+      // 执行自动登录
+      const result = await autoLoginService.autoLogin(email, password, (message) => {
+        // 向前端发送进度更新
+        if (mainWindow) {
+          mainWindow.webContents.send('autoLogin:progress', {
+            email: email,
+            message: message
+          });
+        }
+      });
+
+      // 关闭授权服务器
+      if (authServer) {
+        authServer.close();
+        authServer = null;
+      }
+
+      return result;
+    } catch (error) {
+      console.error('自动登录失败:', error);
+
+      // 确保关闭服务器
+      if (authServer) {
+        authServer.close();
+        authServer = null;
+      }
+
       return { success: false, error: error.message };
     }
   });
@@ -651,6 +825,10 @@ app.whenReady().then(async () => {
     gmailService = new GmailService(dbService, pathHelper);
     await gmailService.initialize();
     console.log('Gmail service initialized');
+
+    // 初始化自动登录服务
+    autoLoginService = new AutoLoginService(gmailService);
+    console.log('Auto login service initialized');
 
     // 初始化并启动 REST API 服务
     apiService = new ApiService(gmailService, dbService);

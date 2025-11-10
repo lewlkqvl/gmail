@@ -34,6 +34,7 @@ npm start  # 交互式选择模式（推荐）
 - ✅ 快速切换账号
 - ✅ 账号批量导入/导出
 - ✅ 账号信息加密存储
+- ✅ **批量自动登录授权**（使用 Puppeteer 自动填写账号密码）
 
 ### 数据存储
 - ✅ SQLite 本地数据库
@@ -256,6 +257,87 @@ npm run start:web
 
 **💡 提示**：导出的文件包含完整的授权凭证，可以在新设备上导入后立即使用，无需重新授权！
 
+### 批量自动登录（新功能）
+
+系统支持使用 Puppeteer 自动控制浏览器完成多个账号的 OAuth 授权，无需手动操作。
+
+#### 准备账号文件
+
+支持两种格式：
+
+**格式 1: 文本格式（推荐，更简单）**
+
+创建 `accounts.txt` 文件，每行一个账号，使用竖线 `|` 分隔：
+
+```text
+user1@gmail.com|your_password_or_app_password
+user2@gmail.com|your_password_or_app_password
+user3@gmail.com|your_password_or_app_password
+```
+
+**参考文件**: `accounts.example.txt`
+
+**格式 2: JSON 格式**
+
+创建 `accounts.json` 文件：
+
+```json
+[
+  {
+    "email": "user1@gmail.com",
+    "password": "your_password_or_app_password"
+  },
+  {
+    "email": "user2@gmail.com",
+    "password": "your_password_or_app_password"
+  }
+]
+```
+
+**参考文件**: `accounts_autologin.example.json`
+
+#### 使用方法
+
+**Electron 模式**：
+- 在账号管理界面点击"批量自动登录"按钮
+- 选择账号文件（支持 .txt 或 .json 格式）
+- 系统会自动打开浏览器依次完成各账号登录
+
+**Web 模式**：
+```bash
+# 使用测试脚本（自动检测文件格式）
+node test_autologin.js
+
+# 或使用 API（文本格式）
+curl -X POST http://localhost:3000/api/account/importTextAndAutoLogin \
+  -H "Content-Type: application/json" \
+  -d '{"content": "user1@gmail.com|password1\nuser2@gmail.com|password2"}'
+
+# 或使用 API（JSON格式）
+curl -X POST http://localhost:3000/api/account/batchAutoLogin \
+  -H "Content-Type: application/json" \
+  -d @accounts.json
+```
+
+#### 工作流程
+
+1. 系统自动启动浏览器（隐私模式）
+2. 自动填写邮箱地址并点击"下一步"
+3. 自动填写密码并提交
+4. 如果启用了双因素验证，会暂停等待手动完成
+5. 自动点击"允许"完成授权
+6. 授权成功后关闭浏览器，继续下一个账号
+
+**预计时间**: 每个账号约 15-30 秒（无 2FA）
+
+#### 安全建议
+
+1. **使用应用专用密码**：访问 [Google 账号安全设置](https://myaccount.google.com/security) 生成应用专用密码
+2. **保护账号文件**：设置文件权限，防止未授权访问
+3. **使用后删除**：完成登录后删除包含密码的 JSON 文件
+
+📖 **详细文档**: 查看 [AUTO_LOGIN.md](AUTO_LOGIN.md) 获取完整的使用指南和故障排除
+
 ### REST API 使用
 
 应用启动时会自动在端口 3100 启动 REST API 服务，供外部程序调用。
@@ -472,6 +554,17 @@ MIT License
 欢迎提交 Issue 和 Pull Request！
 
 ## 更新日志
+
+### v4.1.0
+
+- 🚀 **新功能**：批量自动登录支持
+- ✨ 使用 Puppeteer 自动填写账号密码完成 OAuth 授权
+- ✨ 支持批量导入多个账号并自动完成登录
+- ✨ 新增 REST API 端点：`/api/account/autoLogin` 和 `/api/account/batchAutoLogin`
+- ✨ 支持双因素验证（2FA）手动处理
+- 📝 新增详细文档：AUTO_LOGIN.md
+- 🔧 优化自动登录流程，支持隐私模式
+- ⚡ 账号间自动间隔，避免触发安全检测
 
 ### v4.0.0
 
