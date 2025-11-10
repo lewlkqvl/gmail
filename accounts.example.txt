@@ -1,0 +1,16 @@
+# Gmail 账号批量自动登录 - 文本格式
+# 格式：邮箱|密码
+# 每行一个账号，使用竖线分隔符
+# 以 # 或 // 开头的行为注释行，会被忽略
+# 空行会被忽略
+
+user1@gmail.com|your_password_or_app_password_here
+user2@gmail.com|your_password_or_app_password_here
+user3@gmail.com|your_password_or_app_password_here
+
+# 建议使用 Google 应用专用密码而非主密码
+# 生成方法：https://myaccount.google.com/security -> 两步验证 -> 应用专用密码
+
+// 示例（请替换为实际账号）：
+// example1@gmail.com|abcdefghijklmnop
+// example2@gmail.com|qrstuvwxyz123456

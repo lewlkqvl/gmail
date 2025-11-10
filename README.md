@@ -263,7 +263,23 @@ npm run start:web
 
 #### 准备账号文件
 
-创建一个 JSON 文件（如 `my_accounts.json`），格式如下：
+支持两种格式：
+
+**格式 1: 文本格式（推荐，更简单）**
+
+创建 `accounts.txt` 文件，每行一个账号，使用竖线 `|` 分隔：
+
+```text
+user1@gmail.com|your_password_or_app_password
+user2@gmail.com|your_password_or_app_password
+user3@gmail.com|your_password_or_app_password
+```
+
+**参考文件**: `accounts.example.txt`
+
+**格式 2: JSON 格式**
+
+创建 `accounts.json` 文件：
 
 ```json
 [
@@ -284,18 +300,23 @@ npm run start:web
 
 **Electron 模式**：
 - 在账号管理界面点击"批量自动登录"按钮
-- 选择包含账号信息的 JSON 文件
+- 选择账号文件（支持 .txt 或 .json 格式）
 - 系统会自动打开浏览器依次完成各账号登录
 
 **Web 模式**：
 ```bash
-# 使用测试脚本
+# 使用测试脚本（自动检测文件格式）
 node test_autologin.js
 
-# 或使用 API
+# 或使用 API（文本格式）
+curl -X POST http://localhost:3000/api/account/importTextAndAutoLogin \
+  -H "Content-Type: application/json" \
+  -d '{"content": "user1@gmail.com|password1\nuser2@gmail.com|password2"}'
+
+# 或使用 API（JSON格式）
 curl -X POST http://localhost:3000/api/account/batchAutoLogin \
   -H "Content-Type: application/json" \
-  -d @my_accounts.json
+  -d @accounts.json
 ```
 
 #### 工作流程

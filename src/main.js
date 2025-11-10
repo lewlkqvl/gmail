@@ -448,7 +448,9 @@ function setupIpcHandlers() {
       const result = await dialog.showOpenDialog(mainWindow, {
         title: '导入账号',
         filters: [
-          { name: 'JSON Files', extensions: ['json'] }
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'Text Files', extensions: ['txt'] },
+          { name: 'All Files', extensions: ['*'] }
         ],
         properties: ['openFile']
       });
@@ -458,10 +460,22 @@ function setupIpcHandlers() {
       }
 
       const fileContent = await fs.readFile(result.filePaths[0], 'utf-8');
-      const accounts = JSON.parse(fileContent);
+      const filePath = result.filePaths[0];
+      let accounts;
 
-      if (!Array.isArray(accounts)) {
-        return { success: false, error: 'Invalid file format' };
+      // 根据文件扩展名判断格式
+      if (filePath.endsWith('.json')) {
+        // JSON 格式
+        accounts = JSON.parse(fileContent);
+        if (!Array.isArray(accounts)) {
+          return { success: false, error: 'Invalid JSON format' };
+        }
+      } else {
+        // 文本格式 (email|password)
+        accounts = AutoLoginService.parseTextFile(fileContent);
+        if (accounts.length === 0) {
+          return { success: false, error: '未找到有效的账号信息' };
+        }
       }
 
       const results = dbService.importAccounts(accounts);
@@ -472,7 +486,7 @@ function setupIpcHandlers() {
     }
   });
 
-  // 批量自动登录授权
+  // 批量自动登录授权（从账号数组）
   ipcMain.handle('account:batchAutoLogin', async (event, accounts) => {
     try {
       if (!Array.isArray(accounts) || accounts.length === 0) {
@@ -508,6 +522,74 @@ function setupIpcHandlers() {
       return { success: true, results };
     } catch (error) {
       console.error('批量自动登录失败:', error);
+
+      // 确保关闭服务器
+      if (authServer) {
+        authServer.close();
+        authServer = null;
+      }
+
+      return { success: false, error: error.message };
+    }
+  });
+
+  // 从文件批量导入并自动登录
+  ipcMain.handle('account:importAndAutoLogin', async () => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: '选择账号文件进行批量自动登录',
+        filters: [
+          { name: 'Text Files', extensions: ['txt'] },
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+      });
+
+      if (result.canceled || !result.filePaths.length) {
+        return { success: false, error: 'User cancelled' };
+      }
+
+      const fileContent = await fs.readFile(result.filePaths[0], 'utf-8');
+      const filePath = result.filePaths[0];
+      let accounts;
+
+      // 根据文件格式解析
+      if (filePath.endsWith('.json')) {
+        accounts = JSON.parse(fileContent);
+        if (!Array.isArray(accounts)) {
+          return { success: false, error: 'Invalid JSON format' };
+        }
+      } else {
+        // 文本格式 (email|password)
+        accounts = AutoLoginService.parseTextFile(fileContent);
+        if (accounts.length === 0) {
+          return { success: false, error: '未找到有效的账号信息' };
+        }
+      }
+
+      console.log(`从文件读取到 ${accounts.length} 个账号，开始批量自动登录...`);
+
+      // 先启动授权服务器
+      await startAuthServer();
+
+      // 执行批量自动登录
+      const results = await autoLoginService.batchAutoLogin(accounts, (progress) => {
+        // 向前端发送进度更新
+        if (mainWindow) {
+          mainWindow.webContents.send('autoLogin:progress', progress);
+        }
+      });
+
+      // 关闭授权服务器
+      if (authServer) {
+        authServer.close();
+        authServer = null;
+      }
+
+      return { success: true, results, totalAccounts: accounts.length };
+    } catch (error) {
+      console.error('导入并自动登录失败:', error);
 
       // 确保关闭服务器
       if (authServer) {

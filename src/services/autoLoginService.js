@@ -15,6 +15,51 @@ class AutoLoginService {
   }
 
   /**
+   * 解析文本文件格式的账号列表
+   * 格式: email|password (每行一组)
+   * @param {string} textContent - 文件内容
+   * @returns {Array<{email: string, password: string}>}
+   */
+  static parseTextFile(textContent) {
+    const accounts = [];
+    const lines = textContent.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      // 跳过空行和注释行
+      if (!line || line.startsWith('#') || line.startsWith('//')) {
+        continue;
+      }
+
+      // 解析 email|password 格式
+      const parts = line.split('|');
+      if (parts.length !== 2) {
+        console.warn(`第 ${i + 1} 行格式错误，已跳过: ${line}`);
+        continue;
+      }
+
+      const email = parts[0].trim();
+      const password = parts[1].trim();
+
+      if (!email || !password) {
+        console.warn(`第 ${i + 1} 行邮箱或密码为空，已跳过: ${line}`);
+        continue;
+      }
+
+      // 简单的邮箱格式验证
+      if (!email.includes('@') || !email.includes('.')) {
+        console.warn(`第 ${i + 1} 行邮箱格式错误，已跳过: ${email}`);
+        continue;
+      }
+
+      accounts.push({ email, password });
+    }
+
+    return accounts;
+  }
+
+  /**
    * 查找系统中的 Chrome 可执行文件路径
    */
   findChromePath() {

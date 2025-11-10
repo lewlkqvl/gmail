@@ -27,7 +27,8 @@ contextBridge.exposeInMainWorld('gmailAPI', {
     export: () => ipcRenderer.invoke('account:export'),
     import: () => ipcRenderer.invoke('account:import'),
     autoLogin: (data) => ipcRenderer.invoke('account:autoLogin', data),
-    batchAutoLogin: (accounts) => ipcRenderer.invoke('account:batchAutoLogin', accounts)
+    batchAutoLogin: (accounts) => ipcRenderer.invoke('account:batchAutoLogin', accounts),
+    importAndAutoLogin: () => ipcRenderer.invoke('account:importAndAutoLogin')
   },
 
   // 工具函数

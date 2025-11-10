@@ -339,6 +339,92 @@ class WebServer {
       }
     });
 
+    // 从文本内容导入账号（支持 email|password 格式）
+    this.app.post('/api/account/importFromText', (req, res) => {
+      try {
+        const { content } = req.body;
+
+        if (!content || typeof content !== 'string') {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request: text content is required'
+          });
+        }
+
+        // 解析文本格式
+        const accounts = AutoLoginService.parseTextFile(content);
+
+        if (accounts.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: '未找到有效的账号信息'
+          });
+        }
+
+        const results = this.dbService.importAccounts(accounts);
+
+        res.json({
+          success: true,
+          results: results,
+          count: accounts.length
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 从文本内容导入并自动登录
+    this.app.post('/api/account/importTextAndAutoLogin', async (req, res) => {
+      try {
+        const { content } = req.body;
+
+        if (!content || typeof content !== 'string') {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request: text content is required'
+          });
+        }
+
+        // 解析文本格式
+        const accounts = AutoLoginService.parseTextFile(content);
+
+        if (accounts.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: '未找到有效的账号信息'
+          });
+        }
+
+        console.log(`从文本解析到 ${accounts.length} 个账号，开始批量自动登录...`);
+
+        // 启动授权服务器
+        await this.startAuthServer();
+
+        // 执行批量自动登录
+        const results = await this.autoLoginService.batchAutoLogin(accounts, (progress) => {
+          console.log(`[${progress.current}/${progress.total}] ${progress.email}: ${progress.message}`);
+        });
+
+        // 关闭授权服务器
+        if (this.authServer) {
+          this.authServer.close();
+          this.authServer = null;
+        }
+
+        res.json({ success: true, results, totalAccounts: accounts.length });
+      } catch (error) {
+        console.error('导入文本并自动登录失败:', error);
+
+        // 确保关闭服务器
+        if (this.authServer) {
+          this.authServer.close();
+          this.authServer = null;
+        }
+
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 获取邮件统计
     this.app.get('/api/gmail/getStats', (req, res) => {
       try {

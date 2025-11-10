@@ -17,7 +17,26 @@
 
 #### 1. 准备账号文件
 
-创建一个 JSON 文件（如 `my_accounts.json`），格式如下：
+支持两种格式，选择其一：
+
+**格式 A: 文本格式（推荐，更简单）**
+
+创建 `accounts.txt` 文件，每行一个账号，使用竖线 `|` 分隔：
+
+```text
+user1@gmail.com|your_password_or_app_password
+user2@gmail.com|your_password_or_app_password
+user3@gmail.com|your_password_or_app_password
+
+# 以 # 或 // 开头的行为注释，会被忽略
+# 空行也会被忽略
+```
+
+**参考文件**: `accounts.example.txt`
+
+**格式 B: JSON 格式**
+
+创建 `accounts.json` 文件：
 
 ```json
 [
@@ -32,7 +51,7 @@
 ]
 ```
 
-**注意**：参考 `accounts_autologin.example.json` 文件
+**参考文件**: `accounts_autologin.example.json`
 
 #### 2. 使用命令行批量导入
 
