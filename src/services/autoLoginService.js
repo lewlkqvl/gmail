@@ -106,6 +106,108 @@ class AutoLoginService {
   }
 
   /**
+   * 检测并等待人机验证完成
+   * @param {Page} page - Puppeteer 页面对象
+   * @param {Function} log - 日志函数
+   * @returns {Promise<boolean>} 是否检测到并等待了验证
+   */
+  async waitForCaptchaIfPresent(page, log) {
+    try {
+      // 等待页面稳定
+      await this.delay(2000);
+
+      // 检测多种人机验证标识
+      const captchaSelectors = [
+        'iframe[src*="recaptcha"]',           // Google reCAPTCHA
+        'iframe[src*="captcha"]',             // 其他验证码
+        '#captcha',                            // 验证码容器
+        '[aria-label*="captcha"]',            // aria-label 包含 captcha
+        '[aria-label*="verification"]',       // 验证提示
+        '.captcha-container',                 // 通用验证码容器
+        '#recaptcha',                         // reCAPTCHA ID
+      ];
+
+      let captchaDetected = false;
+
+      // 检查是否存在任何验证码元素
+      for (const selector of captchaSelectors) {
+        try {
+          const element = await page.$(selector);
+          if (element) {
+            captchaDetected = true;
+            log('🤖 检测到人机验证，等待手动完成...');
+            console.log(`[AutoLogin] 检测到验证元素: ${selector}`);
+            break;
+          }
+        } catch (e) {
+          // 继续检查下一个选择器
+        }
+      }
+
+      if (!captchaDetected) {
+        return false;
+      }
+
+      // 如果检测到验证码，等待验证完成
+      log('⏳ 请在浏览器中完成人机验证，最多等待 5 分钟...');
+
+      const maxWaitTime = 300000; // 5 分钟
+      const checkInterval = 2000; // 每 2 秒检查一次
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < maxWaitTime) {
+        await this.delay(checkInterval);
+
+        // 检查验证码是否消失
+        let captchaStillPresent = false;
+        for (const selector of captchaSelectors) {
+          try {
+            const element = await page.$(selector);
+            if (element) {
+              // 检查元素是否可见
+              const isVisible = await page.evaluate(el => {
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+              }, element);
+
+              if (isVisible) {
+                captchaStillPresent = true;
+                break;
+              }
+            }
+          } catch (e) {
+            // 元素不存在或已被移除
+          }
+        }
+
+        if (!captchaStillPresent) {
+          log('✅ 人机验证已完成，继续执行...');
+          await this.delay(2000); // 额外等待确保页面更新
+          return true;
+        }
+
+        // 每 30 秒提醒一次
+        const elapsed = Date.now() - startTime;
+        if (elapsed % 30000 < checkInterval) {
+          const remaining = Math.floor((maxWaitTime - elapsed) / 1000);
+          log(`⏳ 仍在等待验证完成... (剩余 ${remaining} 秒)`);
+        }
+      }
+
+      // 超时
+      throw new Error('等待人机验证超时（5分钟）');
+
+    } catch (e) {
+      if (e.message.includes('超时')) {
+        throw e;
+      }
+      // 其他错误不影响流程
+      console.log('[AutoLogin] 验证检测异常:', e.message);
+      return false;
+    }
+  }
+
+  /**
    * 保存错误截图
    */
   async saveErrorScreenshot(page, email) {
@@ -279,6 +381,12 @@ class AutoLoginService {
         throw new Error('未找到"下一步"按钮');
       }
 
+      // 等待页面响应
+      await this.delay(2000);
+
+      // 检测并等待人机验证（如果有）
+      await this.waitForCaptchaIfPresent(page, log);
+
       // 等待密码输入框出现
       await this.delay(3000);
 
@@ -336,6 +444,12 @@ class AutoLoginService {
       if (!clicked) {
         throw new Error('未找到密码提交按钮');
       }
+
+      // 等待页面响应
+      await this.delay(2000);
+
+      // 检测并等待人机验证（如果有）
+      await this.waitForCaptchaIfPresent(page, log);
 
       // 等待验证和授权页面
       await this.delay(5000);
