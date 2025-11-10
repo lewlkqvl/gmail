@@ -1444,32 +1444,46 @@ batchAuthParseBtn.addEventListener('click', async () => {
     return;
   }
 
-  // 解析账号列表（每行一个邮箱，或 email|password 格式，我们只取邮箱）
+  // 解析账号列表（支持两种格式：1. 每行一个邮箱  2. email|password 格式）
   const lines = accountsText.split('\n');
-  const emails = [];
+  const accounts = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue; // 跳过空行和注释
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue; // 跳过空行和注释
 
-    // 支持 email|password 格式，只取邮箱部分
-    const email = trimmed.split('|')[0].trim();
+    // 支持 email|password 格式
+    const parts = trimmed.split('|');
+    const email = parts[0].trim();
+    const password = parts.length > 1 ? parts[1].trim() : null;
 
     // 简单的邮箱验证
     if (email && email.includes('@')) {
-      emails.push(email);
+      accounts.push({ email, password });
     }
   }
 
-  if (emails.length === 0) {
+  if (accounts.length === 0) {
     showError(batchAuthError, '未找到有效的邮箱地址');
     return;
   }
 
+  // 检测授权模式
+  const hasPasswords = accounts.some(acc => acc.password);
+  const allHavePasswords = accounts.every(acc => acc.password);
+
+  // 提示用户使用哪种模式
+  if (hasPasswords && !allHavePasswords) {
+    const message = '检测到部分账号有密码，部分没有。\n建议：\n1. 有密码的账号将使用自动登录\n2. 没有密码的账号将使用手动授权';
+    console.log(message);
+  }
+
   // 保存账号列表
-  batchAuthAccounts = emails.map((email, index) => ({
+  batchAuthAccounts = accounts.map((account, index) => ({
     index: index + 1,
-    email: email,
+    email: account.email,
+    password: account.password,
+    hasPassword: !!account.password,
     status: 'pending',
     message: ''
   }));
@@ -1526,74 +1540,148 @@ batchAuthStartBtn.addEventListener('click', async () => {
   batchAuthCurrentIndex = 0;
   batchAuthLog.innerHTML = '';
 
-  // 逐个授权
-  for (let i = 0; i < batchAuthAccounts.length; i++) {
-    const account = batchAuthAccounts[i];
-    batchAuthCurrentIndex = i;
+  // 检查是否有账号包含密码（自动登录模式）
+  const accountsWithPassword = batchAuthAccounts.filter(acc => acc.hasPassword);
+  const accountsWithoutPassword = batchAuthAccounts.filter(acc => !acc.hasPassword);
 
-    // 更新进度
-    updateBatchAuthProgress();
-
-    // 检查账号是否已存在
-    const existingResult = await window.gmailAPI.account.getAll();
-    if (existingResult.success) {
-      const exists = existingResult.accounts.some(a => a.email === account.email);
-      if (exists) {
-        account.status = 'skipped';
-        account.message = '账号已存在';
-        addBatchAuthLog('info', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 账号已存在，跳过`);
-        continue;
-      }
-    }
-
-    // 开始授权
-    account.status = 'authorizing';
-    addBatchAuthLog('info', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 开始授权...`);
+  // 如果所有账号都有密码，使用批量自动登录API（更高效）
+  if (accountsWithPassword.length === batchAuthAccounts.length) {
+    addBatchAuthLog('info', `检测到所有账号都有密码，使用自动登录模式...`);
 
     try {
-      // 获取授权URL
-      const authResult = await window.gmailAPI.authorize();
-      if (!authResult.success) {
-        throw new Error(authResult.error);
-      }
+      // 准备账号数据
+      const accounts = batchAuthAccounts.map(acc => ({
+        email: acc.email,
+        password: acc.password
+      }));
 
-      // 打开授权页面
-      window.gmailAPI.openExternal(authResult.authUrl);
-      addBatchAuthLog('info', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 已打开授权页面，请在浏览器中完成授权...`);
+      // 监听自动登录进度
+      window.gmailAPI.onAutoLoginProgress((progress) => {
+        const account = batchAuthAccounts.find(a => a.email === progress.email);
+        if (account) {
+          batchAuthCurrentIndex = account.index - 1;
+          updateBatchAuthProgress();
 
-      // 等待用户输入授权码
-      const code = prompt(`请在浏览器完成授权后，输入 ${account.email} 的授权码：`);
+          // 根据消息判断状态
+          if (progress.message.includes('授权成功') || progress.message.includes('成功')) {
+            account.status = 'success';
+            addBatchAuthLog('success', `[${progress.current}/${progress.total}] ${progress.email}: ${progress.message} ✓`);
+          } else if (progress.message.includes('失败') || progress.message.includes('错误')) {
+            account.status = 'error';
+            addBatchAuthLog('error', `[${progress.current}/${progress.total}] ${progress.email}: ${progress.message}`);
+          } else {
+            addBatchAuthLog('info', `[${progress.current}/${progress.total}] ${progress.email}: ${progress.message}`);
+          }
+        }
+      });
 
-      if (!code) {
-        account.status = 'error';
-        account.message = '用户取消';
-        addBatchAuthLog('error', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 用户取消授权`);
-        continue;
-      }
+      // 调用批量自动登录API
+      const result = await window.gmailAPI.account.batchAutoLogin(accounts);
 
-      // 提交授权码
-      const setAuthResult = await window.gmailAPI.setAuthCode(code);
-
-      if (setAuthResult.success) {
-        account.status = 'success';
-        account.message = '授权成功';
-        addBatchAuthLog('success', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 授权成功 ✓`);
+      if (result.success) {
+        addBatchAuthLog('info', '');
+        addBatchAuthLog('success', '批量自动登录完成！');
       } else {
-        throw new Error(setAuthResult.error);
+        addBatchAuthLog('error', `批量自动登录失败: ${result.error}`);
       }
 
     } catch (error) {
-      account.status = 'error';
-      account.message = error.message;
-      addBatchAuthLog('error', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 授权失败 - ${error.message}`);
+      addBatchAuthLog('error', `批量自动登录异常: ${error.message}`);
     }
 
-    // 更新进度
-    updateBatchAuthProgress();
+  } else {
+    // 混合模式：逐个处理
+    addBatchAuthLog('info', `检测到混合模式：${accountsWithPassword.length} 个账号有密码（自动登录），${accountsWithoutPassword.length} 个账号无密码（手动授权）`);
 
-    // 短暂延迟，避免请求过快
-    if (i < batchAuthAccounts.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+    for (let i = 0; i < batchAuthAccounts.length; i++) {
+      const account = batchAuthAccounts[i];
+      batchAuthCurrentIndex = i;
+
+      // 更新进度
+      updateBatchAuthProgress();
+
+      // 检查账号是否已存在
+      const existingResult = await window.gmailAPI.account.getAll();
+      if (existingResult.success) {
+        const exists = existingResult.accounts.some(a => a.email === account.email);
+        if (exists) {
+          account.status = 'skipped';
+          account.message = '账号已存在';
+          addBatchAuthLog('info', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 账号已存在，跳过`);
+          continue;
+        }
+      }
+
+      // 开始授权
+      account.status = 'authorizing';
+
+      try {
+        // 如果有密码，使用自动登录
+        if (account.hasPassword) {
+          addBatchAuthLog('info', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 使用自动登录模式...`);
+
+          const result = await window.gmailAPI.account.autoLogin({
+            email: account.email,
+            password: account.password
+          });
+
+          if (result.success) {
+            account.status = 'success';
+            account.message = '授权成功';
+            addBatchAuthLog('success', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 授权成功 ✓`);
+          } else {
+            throw new Error(result.error || '自动登录失败');
+          }
+
+        } else {
+          // 使用手动授权
+          addBatchAuthLog('info', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 使用手动授权模式...`);
+
+          // 获取授权URL
+          const authResult = await window.gmailAPI.authorize();
+          if (!authResult.success) {
+            throw new Error(authResult.error);
+          }
+
+          // 打开授权页面
+          window.gmailAPI.openExternal(authResult.authUrl);
+          addBatchAuthLog('info', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 已打开授权页面，请在浏览器中完成授权...`);
+
+          // 等待用户输入授权码
+          const code = prompt(`请在浏览器完成授权后，输入 ${account.email} 的授权码：`);
+
+          if (!code) {
+            account.status = 'error';
+            account.message = '用户取消';
+            addBatchAuthLog('error', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 用户取消授权`);
+            continue;
+          }
+
+          // 提交授权码
+          const setAuthResult = await window.gmailAPI.setAuthCode(code);
+
+          if (setAuthResult.success) {
+            account.status = 'success';
+            account.message = '授权成功';
+            addBatchAuthLog('success', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 授权成功 ✓`);
+          } else {
+            throw new Error(setAuthResult.error);
+          }
+        }
+
+      } catch (error) {
+        account.status = 'error';
+        account.message = error.message;
+        addBatchAuthLog('error', `[${account.index}/${batchAuthAccounts.length}] ${account.email}: 授权失败 - ${error.message}`);
+      }
+
+      // 更新进度
+      updateBatchAuthProgress();
+
+      // 短暂延迟，避免请求过快
+      if (i < batchAuthAccounts.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
   }
 
