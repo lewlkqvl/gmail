@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gmail 客户端</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 授权界面 -->
+    <div id="auth-screen" class="screen">
+      <div class="auth-container">
+        <div class="auth-card">
+          <h1>📬 Gmail 客户端</h1>
+          <p>请先进行 Google 账号授权以开始使用</p>
+          <button id="auth-btn" class="btn btn-primary">🔐 授权 Gmail 访问</button>
+          <button id="auth-import-btn" class="btn" style="margin-top: 12px;">📥 导入已有账号</button>
+
+          <div id="auth-waiting" class="hidden">
+            <div class="auth-instructions">
+              <h3>⏳ 等待授权中...</h3>
+              <ol>
+                <li>浏览器将在隐私模式下自动打开授权页面</li>
+                <li>在浏览器中选择您的 Google 账号并授权</li>
+                <li>授权成功后，浏览器会显示成功页面</li>
+                <li>应用将自动完成登录，无需手动操作</li>
+              </ol>
+              <p class="hint">💡 提示：授权过程会在独立的隐私浏览器窗口中进行，不会保留任何浏览记录</p>
+            </div>
+          </div>
+
+          <div id="auth-error" class="error hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="main-screen" class="screen hidden">
+      <div class="header">
+        <div class="header-left">
+          <h1>📬 Gmail</h1>
+          <div id="account-info" class="account-info"></div>
+        </div>
+        <div class="header-right">
+          <button id="sync-btn" class="btn">🔄 同步</button>
+          <button id="compose-btn" class="btn btn-primary">✉️ 写邮件</button>
+          <button id="accounts-btn" class="btn">👤 账号</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- 账号列表 -->
+        <div class="accounts-sidebar">
+          <div class="accounts-sidebar-header">
+            <h3>📧 账号</h3>
+            <button id="sidebar-add-account-btn" class="btn btn-icon" title="添加账号">➕</button>
+          </div>
+          <div id="accounts-sidebar-list" class="accounts-sidebar-list">
+            <!-- 账号列表将动态生成 -->
+          </div>
+          <div id="accounts-pagination" class="accounts-pagination hidden">
+            <button id="prev-page-btn" class="btn btn-sm" disabled>‹</button>
+            <span id="page-info">1/1</span>
+            <button id="next-page-btn" class="btn btn-sm" disabled>›</button>
+          </div>
+        </div>
+
+        <!-- 邮件列表 -->
+        <div class="mail-list">
+          <div id="loading" class="loading hidden">加载中...</div>
+          <div id="mail-list-container"></div>
+        </div>
+
+        <!-- 邮件详情 -->
+        <div class="mail-detail">
+          <div id="mail-detail-empty" class="empty-state">
+            选择一封邮件查看详情
+          </div>
+          <div id="mail-detail-container" class="hidden">
+            <div class="mail-detail-header">
+              <h2 id="detail-subject"></h2>
+              <div class="mail-actions">
+                <button id="reply-btn" class="btn btn-sm">↩️ 回复</button>
+                <button id="delete-btn" class="btn btn-sm btn-danger">🗑️ 删除</button>
+              </div>
+            </div>
+            <div class="mail-meta">
+              <div><strong>发件人：</strong> <span id="detail-from"></span></div>
+              <div><strong>收件人：</strong> <span id="detail-to"></span></div>
+              <div><strong>日期：</strong> <span id="detail-date"></span></div>
+            </div>
+            <div class="mail-body" id="detail-body"></div>
+
+            <!-- 邮件链接提取区域 -->
+            <div id="mail-links-section" class="mail-links-section hidden">
+              <div class="mail-links-header">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <h3>🔗 邮件中的链接</h3>
+                  <span class="links-count" id="links-count">0</span>
+                </div>
+                <button id="copy-all-links-btn" class="btn btn-sm" style="display: none;">📋 全部复制</button>
+              </div>
+              <div class="mail-links-list" id="mail-links-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 写邮件模态框 -->
+    <div id="compose-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>✉️ 写邮件</h2>
+          <button class="close-btn" data-close="compose-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="compose-to">📧 收件人</label>
+            <input type="email" id="compose-to" placeholder="recipient@example.com" required>
+          </div>
+          <div class="form-group">
+            <label for="compose-subject">📝 主题</label>
+            <input type="text" id="compose-subject" placeholder="邮件主题" required>
+          </div>
+          <div class="form-group">
+            <label for="compose-message">📄 内容</label>
+            <textarea id="compose-message" rows="10" placeholder="请输入邮件内容..." required></textarea>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" data-close="compose-modal">取消</button>
+            <button id="send-btn" class="btn btn-primary">📤 发送</button>
+          </div>
+          <div id="compose-error" class="error hidden"></div>
+          <div id="compose-success" class="success hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 账号管理模态框 -->
+    <div id="accounts-modal" class="modal hidden">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>👤 账号管理</h2>
+          <button class="close-btn" data-close="accounts-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="accounts-toolbar">
+            <button id="add-account-btn" class="btn btn-primary">➕ 添加账号</button>
+            <button id="batch-auth-btn" class="btn btn-primary">🚀 批量授权</button>
+            <button id="import-accounts-btn" class="btn">📥 导入</button>
+            <button id="export-accounts-btn" class="btn">📤 导出</button>
+            <button id="delete-all-accounts-btn" class="btn btn-danger" style="margin-left: auto;">🗑️ 删除所有</button>
+          </div>
+
+          <div id="accounts-list" class="accounts-list">
+            <!-- 账号列表将动态生成 -->
+          </div>
+
+          <div id="accounts-error" class="error hidden"></div>
+          <div id="accounts-success" class="success hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 批量授权模态框 -->
+    <div id="batch-auth-modal" class="modal hidden">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>🚀 批量授权</h2>
+          <button class="close-btn" data-close="batch-auth-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- 步骤1: 选择文件 -->
+          <div id="batch-auth-step1" class="batch-auth-step">
+            <div class="batch-auth-info">
+              <h3>📄 选择账号列表文件</h3>
+              <p>请准备一个文本文件，每行一个邮箱地址：</p>
+              <pre class="batch-auth-example">user1@gmail.com
+user2@gmail.com
+user3@gmail.com</pre>
+              <p class="hint">💡 提示：由于使用 OAuth 2.0 授权，无需提供密码</p>
+            </div>
+            <div class="form-group">
+              <label for="batch-auth-file">选择文件</label>
+              <input type="file" id="batch-auth-file" accept=".txt,.csv" />
+            </div>
+            <div class="form-group">
+              <label for="batch-auth-textarea">或直接粘贴账号列表</label>
+              <textarea id="batch-auth-textarea" rows="6" placeholder="每行一个邮箱地址"></textarea>
+            </div>
+            <div class="modal-footer">
+              <button class="btn" data-close="batch-auth-modal">取消</button>
+              <button id="batch-auth-parse-btn" class="btn btn-primary">下一步</button>
+            </div>
+          </div>
+
+          <!-- 步骤2: 确认账号列表 -->
+          <div id="batch-auth-step2" class="batch-auth-step hidden">
+            <div class="batch-auth-info">
+              <h3>📋 确认账号列表</h3>
+              <p>共解析出 <strong id="batch-auth-count">0</strong> 个账号</p>
+            </div>
+            <div id="batch-auth-list" class="batch-auth-list">
+              <!-- 账号列表将动态生成 -->
+            </div>
+            <div class="modal-footer">
+              <button id="batch-auth-back-btn" class="btn">上一步</button>
+              <button id="batch-auth-start-btn" class="btn btn-primary">开始授权</button>
+            </div>
+          </div>
+
+          <!-- 步骤3: 授权进度 -->
+          <div id="batch-auth-step3" class="batch-auth-step hidden">
+            <div class="batch-auth-info">
+              <h3>⏳ 授权进度</h3>
+              <div class="batch-auth-progress">
+                <div class="progress-bar">
+                  <div id="batch-auth-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">
+                  <span id="batch-auth-progress-text">0 / 0</span>
+                </div>
+              </div>
+            </div>
+            <div id="batch-auth-log" class="batch-auth-log">
+              <!-- 授权日志将动态生成 -->
+            </div>
+            <div class="modal-footer">
+              <button id="batch-auth-close-btn" class="btn" disabled>关闭</button>
+            </div>
+          </div>
+
+          <div id="batch-auth-error" class="error hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API适配器：自动检测Electron或Web模式 -->
+  <script src="apiAdapter.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

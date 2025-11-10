@@ -1,0 +1,1298 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-color: #4285f4;
+  --primary-hover: #3367d6;
+  --danger-color: #ea4335;
+  --danger-hover: #d33828;
+  --success-color: #34a853;
+  --text-primary: #202124;
+  --text-secondary: #5f6368;
+  --text-disabled: #9aa0a6;
+  --border-color: #dadce0;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-hover: #f1f3f4;
+  --shadow-sm: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  --shadow-md: 0 1px 3px 0 rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+}
+
+body {
+  font-family: 'Google Sans', 'Segoe UI', Roboto, -apple-system, sans-serif;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.screen {
+  width: 100%;
+  height: 100%;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ==================== 授权界面 ==================== */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.auth-card {
+  background: var(--bg-primary);
+  padding: 48px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+}
+
+.auth-container h1 {
+  font-size: 32px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.auth-container p {
+  margin-bottom: 32px;
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+#auth-waiting {
+  margin-top: 24px;
+  text-align: left;
+}
+
+.auth-instructions {
+  background-color: #e8f0fe;
+  border-left: 4px solid var(--primary-color);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: left;
+}
+
+.auth-instructions h3 {
+  margin: 0 0 16px 0;
+  color: var(--primary-color);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.auth-instructions ol {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.auth-instructions li {
+  margin: 12px 0;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.auth-instructions .hint {
+  margin: 16px 0 0 0;
+  padding: 12px;
+  background-color: #fef7e0;
+  border-left: 3px solid #f9ab00;
+  border-radius: 4px;
+  color: #7a5500;
+  font-size: 14px;
+}
+
+/* ==================== 主界面 ==================== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header h1 {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.header-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.account-info {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 6px 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.content {
+  display: flex;
+  height: calc(100vh - 65px);
+}
+
+/* ==================== 账号侧边栏 ==================== */
+.accounts-sidebar {
+  width: 260px;
+  background-color: #f8f9fa;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.accounts-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 2px solid var(--border-color);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.accounts-sidebar-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.accounts-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.sidebar-account-item {
+  padding: 12px;
+  margin-bottom: 6px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.sidebar-account-item:hover {
+  background-color: #f0f0f0;
+  border-color: var(--primary-color);
+  transform: translateX(4px);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-account-item.active {
+  background: linear-gradient(135deg, #e8f0fe 0%, #d3e3fd 100%);
+  border-color: var(--primary-color);
+  border-left: 4px solid var(--primary-color);
+  font-weight: 600;
+}
+
+.sidebar-account-item.not-authorized {
+  opacity: 0.6;
+  background: #fff3cd;
+  border-color: #ffc107;
+}
+
+.sidebar-account-email {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.sidebar-account-item.active .sidebar-account-email {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.sidebar-account-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.sidebar-account-status.authorized {
+  color: #388e3c;
+}
+
+.sidebar-account-status.not-authorized {
+  color: #f57c00;
+}
+
+.accounts-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-top: 1px solid var(--border-color);
+  background-color: white;
+  gap: 12px;
+}
+
+#page-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: center;
+}
+
+.accounts-pagination .btn-sm {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.accounts-pagination .btn-sm:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ==================== 邮件列表 ==================== */
+.mail-list {
+  width: 340px;
+  background-color: var(--bg-primary);
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.loading {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.mail-item {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.mail-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.mail-item.active {
+  background-color: #e8f0fe;
+  border-left: 3px solid var(--primary-color);
+}
+
+.mail-item.unread {
+  background-color: #f8f9fa;
+}
+
+.mail-item.unread .mail-item-from {
+  font-weight: 600;
+}
+
+.mail-item-from {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mail-item-subject {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mail-item-snippet {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+
+.mail-item-date {
+  font-size: 11px;
+  color: var(--text-disabled);
+  margin-top: 4px;
+}
+
+/* ==================== 邮件详情 ==================== */
+.mail-detail {
+  flex: 1;
+  background-color: var(--bg-primary);
+  overflow-y: auto;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-disabled);
+  font-size: 16px;
+}
+
+.empty-state::before {
+  content: "📧";
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+#mail-detail-container {
+  padding: 32px 40px;
+  max-width: 900px;
+}
+
+.mail-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mail-detail-header h2 {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  margin-right: 24px;
+  line-height: 1.3;
+}
+
+.mail-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mail-meta {
+  margin-bottom: 32px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  font-size: 14px;
+}
+
+.mail-meta strong {
+  color: var(--text-primary);
+  font-weight: 500;
+  min-width: 70px;
+  display: inline-block;
+}
+
+.mail-body {
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 15px;
+}
+
+/* ==================== 按钮 ==================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn:hover {
+  background-color: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.btn-danger {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: var(--danger-hover);
+}
+
+.btn-sm {
+  padding: 6px 16px;
+  font-size: 13px;
+}
+
+/* ==================== 模态框 ==================== */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background-color: var(--bg-primary);
+  width: 600px;
+  max-height: 85vh;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h2 {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  max-height: calc(85vh - 140px);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s;
+  background-color: var(--bg-primary);
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: flex-end;
+}
+
+/* ==================== 消息提示 ==================== */
+.error {
+  padding: 12px 16px;
+  margin-top: 12px;
+  background-color: #fce8e6;
+  color: var(--danger-color);
+  border-radius: 8px;
+  font-size: 14px;
+  border-left: 4px solid var(--danger-color);
+}
+
+.success {
+  padding: 12px 16px;
+  margin-top: 12px;
+  background-color: #e6f4ea;
+  color: var(--success-color);
+  border-radius: 8px;
+  font-size: 14px;
+  border-left: 4px solid var(--success-color);
+}
+
+/* ==================== 账号管理 ==================== */
+.modal-large {
+  width: 700px;
+}
+
+.accounts-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.accounts-list {
+  max-height: 450px;
+  overflow-y: auto;
+}
+
+.account-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+  background-color: var(--bg-primary);
+}
+
+.account-item:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+.account-item.active {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+}
+
+.account-info-group {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-email {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.account-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.account-status.authorized {
+  color: var(--success-color);
+  font-weight: 500;
+}
+
+.account-status.not-authorized {
+  color: var(--danger-color);
+  font-weight: 500;
+}
+
+.account-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.account-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  margin-left: 12px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* ==================== 滚动条样式 ==================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-disabled);
+}
+
+/* ==================== 动画效果 ==================== */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading::after {
+  content: "⏳";
+  display: inline-block;
+  animation: spin 2s linear infinite;
+  margin-left: 8px;
+}
+
+/* ==================== 邮件链接提取区域 ==================== */
+.mail-links-section {
+  margin-top: 32px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.mail-links-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+.mail-links-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.links-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.mail-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.link-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.link-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-color);
+}
+
+.link-url {
+  flex: 1;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 14px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 12px;
+  transition: color 0.2s ease;
+}
+
+.link-url:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+.copy-link-btn {
+  flex-shrink: 0;
+  min-width: 80px;
+  padding: 6px 12px;
+  font-size: 13px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.copy-link-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+.copy-link-btn:active {
+  transform: translateY(0);
+}
+
+.copy-link-btn.copied {
+  background: linear-gradient(135deg, #34a853 0%, #2d8e47 100%);
+  box-shadow: 0 2px 8px rgba(52, 168, 83, 0.4);
+}
+
+/* 空状态 - 无链接时隐藏 */
+.mail-links-section.hidden {
+  display: none;
+}
+
+/* ==================== 账号邮箱复制功能 ==================== */
+
+/* 侧边栏账号项布局 - 添加复制按钮 */
+.sidebar-account-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-account-main {
+  flex: 1;
+  min-width: 0; /* 允许文本溢出省略 */
+}
+
+.sidebar-account-copy-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.sidebar-account-copy-btn:hover {
+  opacity: 1;
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.4);
+  transform: scale(1.1);
+}
+
+.sidebar-account-copy-btn:active {
+  transform: scale(0.95);
+}
+
+.sidebar-account-item.active .sidebar-account-copy-btn {
+  background: rgba(66, 133, 244, 0.15);
+  border-color: rgba(66, 133, 244, 0.3);
+}
+
+/* 账号管理模态框中的复制按钮 */
+.btn-copy {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-copy:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-copy:active {
+  transform: translateY(0);
+}
+
+/* 复制成功提示框 */
+.copy-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #34a853 0%, #2d8e47 100%);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(52, 168, 83, 0.3);
+  z-index: 10000;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+.copy-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 手动复制模态框 */
+.manual-copy-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.manual-copy-modal.show {
+  opacity: 1;
+}
+
+.manual-copy-modal.fade-out {
+  opacity: 0;
+}
+
+.manual-copy-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: auto;
+  transform: scale(0.9);
+  transition: transform 0.3s ease;
+}
+
+.manual-copy-modal.show .manual-copy-content {
+  transform: scale(1);
+}
+
+.manual-copy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 2px solid var(--border-color);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.manual-copy-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+}
+
+.manual-copy-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 28px;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.manual-copy-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.manual-copy-body {
+  padding: 24px;
+}
+
+.manual-copy-body p {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.manual-copy-text-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.manual-copy-text {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.manual-copy-text:focus {
+  border-color: var(--primary-color);
+  background: white;
+}
+
+.manual-copy-select-btn {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.manual-copy-select-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.manual-copy-select-btn:active {
+  transform: translateY(0);
+}
+
+.manual-copy-hint {
+  padding: 12px;
+  background: #e8f0fe;
+  border-left: 4px solid var(--primary-color);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 批量授权模态框 */
+.batch-auth-step {
+  display: block;
+}
+
+.batch-auth-step.hidden {
+  display: none;
+}
+
+.batch-auth-info {
+  margin-bottom: 20px;
+}
+
+.batch-auth-info h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.batch-auth-info p {
+  margin: 8px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.batch-auth-example {
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 12px 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: #333;
+  overflow-x: auto;
+}
+
+.batch-auth-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.batch-auth-list-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.batch-auth-list-item .email {
+  flex: 1;
+  color: var(--text-primary);
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.batch-auth-list-item .status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f0f0f0;
+}
+
+.batch-auth-list-item .status.success {
+  color: #2d8e47;
+  background: #e6f4ea;
+}
+
+.batch-auth-list-item .status.error {
+  color: #c5221f;
+  background: #fce8e6;
+}
+
+.batch-auth-list-item .status.pending {
+  color: #f9ab00;
+  background: #fef7e0;
+}
+
+/* 进度条 */
+.batch-auth-progress {
+  margin: 16px 0;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 24px;
+  background: #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.progress-text {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* 授权日志 */
+.batch-auth-log {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+}
+
+.batch-auth-log-item {
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.batch-auth-log-item:last-child {
+  border-bottom: none;
+}
+
+.batch-auth-log-item .time {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.batch-auth-log-item .message {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.batch-auth-log-item.success .message {
+  color: #2d8e47;
+}
+
+.batch-auth-log-item.error .message {
+  color: #c5221f;
+}
+
+.batch-auth-log-item.info .message {
+  color: var(--primary-color);
+}
