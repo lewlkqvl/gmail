@@ -155,6 +155,10 @@ class AutoLoginService {
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
           '--disable-blink-features=AutomationControlled',
+          '--disable-popup-blocking',
+          '--disable-notifications',
+          '--disable-infobars',
+          '--disable-session-crashed-bubble',
           '--window-size=1280,1024'
         ],
         defaultViewport: {
@@ -166,17 +170,57 @@ class AutoLoginService {
       const pages = await this.browser.pages();
       const page = pages[0] || await this.browser.newPage();
 
-      // 覆盖 prompt、alert、confirm 函数，防止阻塞
+      // ===== 关键修复：主动拦截所有对话框 =====
+      // 这是最重要的修复，直接监听并自动关闭所有对话框
+      page.on('dialog', async dialog => {
+        const type = dialog.type();
+        const message = dialog.message();
+        log(`[Dialog 拦截] 类型: ${type}, 消息: ${message}`);
+        console.log(`[AutoLogin] 检测到对话框 (${type}): "${message}" - 已自动关闭`);
+
+        try {
+          // 自动关闭对话框，不让其阻塞流程
+          await dialog.dismiss();
+        } catch (e) {
+          log(`[Dialog] 关闭对话框时出错: ${e.message}`);
+        }
+      });
+
+      // 覆盖 prompt、alert、confirm 函数（双重保险）
       await page.evaluateOnNewDocument(() => {
-        window.alert = () => {};
-        window.prompt = () => null;
-        window.confirm = () => true;
+        // 保存原始函数的引用（用于调试）
+        window.__originalAlert = window.alert;
+        window.__originalPrompt = window.prompt;
+        window.__originalConfirm = window.confirm;
+
+        // 覆盖函数
+        window.alert = function(message) {
+          console.log('[Blocked Alert]:', message);
+          return undefined;
+        };
+        window.prompt = function(message, defaultValue) {
+          console.log('[Blocked Prompt]:', message, defaultValue);
+          return null;
+        };
+        window.confirm = function(message) {
+          console.log('[Blocked Confirm]:', message);
+          return true;
+        };
+
+        console.log('[AutoLogin] Dialog functions overridden successfully');
       });
 
       // 监听控制台消息和错误
       page.on('console', msg => {
-        if (msg.type() === 'error') {
-          console.log(`[Browser Error] ${msg.text()}`);
+        const type = msg.type();
+        const text = msg.text();
+
+        // 记录所有类型的控制台消息以便调试
+        if (type === 'error') {
+          console.log(`[Browser Error] ${text}`);
+        } else if (text.includes('Blocked') || text.includes('Dialog')) {
+          // 显示被阻止的对话框信息
+          console.log(`[Browser Log] ${text}`);
         }
       });
 
