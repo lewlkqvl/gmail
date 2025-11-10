@@ -25,7 +25,9 @@ contextBridge.exposeInMainWorld('gmailAPI', {
     delete: (accountId) => ipcRenderer.invoke('account:delete', accountId),
     deleteAll: () => ipcRenderer.invoke('account:deleteAll'),
     export: () => ipcRenderer.invoke('account:export'),
-    import: () => ipcRenderer.invoke('account:import')
+    import: () => ipcRenderer.invoke('account:import'),
+    autoLogin: (data) => ipcRenderer.invoke('account:autoLogin', data),
+    batchAutoLogin: (accounts) => ipcRenderer.invoke('account:batchAutoLogin', accounts)
   },
 
   // 工具函数
@@ -61,5 +63,8 @@ contextBridge.exposeInMainWorld('gmailAPI', {
   },
   onAuthFailed: (callback) => {
     ipcRenderer.on('auth:failed', (event, error) => callback(error));
+  },
+  onAutoLoginProgress: (callback) => {
+    ipcRenderer.on('autoLogin:progress', (event, progress) => callback(progress));
   }
 });
