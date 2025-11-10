@@ -113,31 +113,61 @@ class AutoLoginService {
    */
   async waitForCaptchaIfPresent(page, log) {
     try {
-      // 等待页面稳定
-      await this.delay(2000);
+      // 等待页面稳定和动态内容加载
+      await this.delay(3000);
 
       // 检测多种人机验证标识
       const captchaSelectors = [
-        'iframe[src*="recaptcha"]',           // Google reCAPTCHA
-        'iframe[src*="captcha"]',             // 其他验证码
-        '#captcha',                            // 验证码容器
-        '[aria-label*="captcha"]',            // aria-label 包含 captcha
-        '[aria-label*="verification"]',       // 验证提示
-        '.captcha-container',                 // 通用验证码容器
+        // reCAPTCHA 相关
+        'iframe[src*="recaptcha"]',           // Google reCAPTCHA iframe
+        'iframe[src*="google.com/recaptcha"]', // 完整的 reCAPTCHA URL
         '#recaptcha',                         // reCAPTCHA ID
+        '.g-recaptcha',                       // reCAPTCHA class
+
+        // 验证码容器和输入框
+        '#captcha',                           // 验证码容器
+        '.captcha-container',                 // 通用验证码容器
+        'input[name*="captcha"]',            // 验证码输入框（name 包含 captcha）
+        'input[id*="captcha"]',              // 验证码输入框（id 包含 captcha）
+        'input[placeholder*="验证码"]',       // 中文验证码输入框
+        'input[placeholder*="verification"]', // 英文验证码输入框
+        'input[aria-label*="验证码"]',        // aria-label 验证码
+
+        // 通用验证标识
+        '[aria-label*="captcha"]',           // aria-label 包含 captcha
+        '[aria-label*="verification"]',      // aria-label 包含 verification
+        '[aria-label*="Verify"]',            // 验证提示
+        'iframe[title*="reCAPTCHA"]',        // reCAPTCHA title
+        'iframe[title*="验证"]',              // 中文验证
+
+        // Google 特定的验证提示
+        '[data-challenge-type]',             // Google challenge 类型
+        '#challenge',                         // Challenge 容器
+        '.challenge-container',              // Challenge class
       ];
 
       let captchaDetected = false;
+      let detectedSelector = '';
 
       // 检查是否存在任何验证码元素
       for (const selector of captchaSelectors) {
         try {
           const element = await page.$(selector);
           if (element) {
-            captchaDetected = true;
-            log('🤖 检测到人机验证，等待手动完成...');
-            console.log(`[AutoLogin] 检测到验证元素: ${selector}`);
-            break;
+            // 检查元素是否可见
+            const isVisible = await page.evaluate(el => {
+              const rect = el.getBoundingClientRect();
+              const style = window.getComputedStyle(el);
+              return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+            }, element);
+
+            if (isVisible) {
+              captchaDetected = true;
+              detectedSelector = selector;
+              log('🤖 检测到人机验证，等待手动完成...');
+              console.log(`[AutoLogin] 检测到验证元素: ${selector}`);
+              break;
+            }
           }
         } catch (e) {
           // 继续检查下一个选择器
@@ -150,6 +180,7 @@ class AutoLoginService {
 
       // 如果检测到验证码，等待验证完成
       log('⏳ 请在浏览器中完成人机验证，最多等待 5 分钟...');
+      log(`提示：检测到的验证类型 - ${detectedSelector}`);
 
       const maxWaitTime = 300000; // 5 分钟
       const checkInterval = 2000; // 每 2 秒检查一次
@@ -167,7 +198,8 @@ class AutoLoginService {
               // 检查元素是否可见
               const isVisible = await page.evaluate(el => {
                 const rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0;
+                const style = window.getComputedStyle(el);
+                return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
               }, element);
 
               if (isVisible) {
@@ -182,7 +214,7 @@ class AutoLoginService {
 
         if (!captchaStillPresent) {
           log('✅ 人机验证已完成，继续执行...');
-          await this.delay(2000); // 额外等待确保页面更新
+          await this.delay(3000); // 额外等待确保页面更新和跳转
           return true;
         }
 
@@ -204,6 +236,51 @@ class AutoLoginService {
       // 其他错误不影响流程
       console.log('[AutoLogin] 验证检测异常:', e.message);
       return false;
+    }
+  }
+
+  /**
+   * 调试：输出页面中所有输入框信息
+   */
+  async debugPageInputs(page) {
+    try {
+      const inputs = await page.$$('input');
+      console.log(`[Debug] 页面中共有 ${inputs.length} 个输入框：`);
+
+      for (let i = 0; i < inputs.length; i++) {
+        const inputInfo = await page.evaluate(el => {
+          return {
+            type: el.type,
+            name: el.name || '(无)',
+            id: el.id || '(无)',
+            placeholder: el.placeholder || '(无)',
+            ariaLabel: el.getAttribute('aria-label') || '(无)',
+            className: el.className || '(无)',
+            visible: el.offsetWidth > 0 && el.offsetHeight > 0
+          };
+        }, inputs[i]);
+
+        console.log(`[Debug] 输入框 ${i + 1}:`, JSON.stringify(inputInfo, null, 2));
+      }
+
+      // 检查 iframe
+      const iframes = await page.$$('iframe');
+      console.log(`[Debug] 页面中共有 ${iframes.length} 个 iframe：`);
+
+      for (let i = 0; i < iframes.length; i++) {
+        const iframeInfo = await page.evaluate(el => {
+          return {
+            src: el.src || '(无)',
+            title: el.title || '(无)',
+            id: el.id || '(无)',
+            className: el.className || '(无)'
+          };
+        }, iframes[i]);
+
+        console.log(`[Debug] iframe ${i + 1}:`, JSON.stringify(iframeInfo, null, 2));
+      }
+    } catch (e) {
+      console.error('[Debug] 调试输出失败:', e.message);
     }
   }
 
@@ -381,14 +458,11 @@ class AutoLoginService {
         throw new Error('未找到"下一步"按钮');
       }
 
-      // 等待页面响应
-      await this.delay(2000);
+      // 等待页面响应（缩短，因为 waitForCaptchaIfPresent 内部会等待）
+      await this.delay(1000);
 
       // 检测并等待人机验证（如果有）
       await this.waitForCaptchaIfPresent(page, log);
-
-      // 等待密码输入框出现
-      await this.delay(3000);
 
       log('检查是否有错误提示...');
 
@@ -405,19 +479,93 @@ class AutoLoginService {
         // 如果没有错误元素，继续
       }
 
-      log('填写密码...');
+      log('等待密码页面...');
+
+      // 等待密码输入框出现（增加等待时间）
+      await this.delay(2000);
+
+      // 调试：输出页面中所有输入框和iframe信息
+      console.log('[AutoLogin] ========== 页面元素调试信息 ==========');
+      await this.debugPageInputs(page);
+      console.log('[AutoLogin] ========================================');
+
+      // 再次检查是否有验证码（有些验证码会在这个阶段出现）
+      const hasCaptcha = await this.waitForCaptchaIfPresent(page, log);
+
+      log('查找密码输入框...');
 
       // 步骤2: 填写密码
-      const passwordInputSelector = 'input[type="password"]';
-      try {
-        await page.waitForSelector(passwordInputSelector, { timeout: 10000 });
-      } catch (e) {
-        // 截图以便调试
-        await this.saveErrorScreenshot(page, email);
-        throw new Error('未找到密码输入框，可能是邮箱验证失败或页面加载问题');
+      // 使用更精确的选择器，避免匹配到验证码输入框
+      let passwordInput = null;
+
+      // 首先尝试通过 name 属性定位（Google 登录的密码框通常有特定的 name）
+      const passwordSelectors = [
+        'input[type="password"][name="Passwd"]',  // Google 特定的密码框
+        'input[type="password"][name="password"]', // 通用密码框
+        'input[type="password"]:not([name*="captcha"]):not([id*="captcha"])', // 排除验证码框
+      ];
+
+      for (const selector of passwordSelectors) {
+        try {
+          await page.waitForSelector(selector, { timeout: 3000 });
+          passwordInput = await page.$(selector);
+          if (passwordInput) {
+            console.log(`[AutoLogin] 找到密码输入框: ${selector}`);
+            break;
+          }
+        } catch (e) {
+          continue;
+        }
       }
 
-      await page.type(passwordInputSelector, password, { delay: 100 });
+      // 如果上面的方法都失败，使用通用方法但要验证
+      if (!passwordInput) {
+        try {
+          await page.waitForSelector('input[type="password"]', { timeout: 5000 });
+
+          // 获取所有 password 类型的输入框
+          const passwordInputs = await page.$$('input[type="password"]');
+
+          // 排除验证码相关的输入框
+          for (const input of passwordInputs) {
+            const inputInfo = await page.evaluate(el => {
+              return {
+                name: el.name || '',
+                id: el.id || '',
+                placeholder: el.placeholder || '',
+                ariaLabel: el.getAttribute('aria-label') || ''
+              };
+            }, input);
+
+            // 检查是否是验证码输入框
+            const isCaptcha =
+              inputInfo.name.toLowerCase().includes('captcha') ||
+              inputInfo.id.toLowerCase().includes('captcha') ||
+              inputInfo.placeholder.includes('验证码') ||
+              inputInfo.placeholder.toLowerCase().includes('verification') ||
+              inputInfo.ariaLabel.includes('验证码');
+
+            if (!isCaptcha) {
+              passwordInput = input;
+              console.log('[AutoLogin] 找到密码输入框（通用方法）:', inputInfo);
+              break;
+            } else {
+              console.log('[AutoLogin] 跳过验证码输入框:', inputInfo);
+            }
+          }
+        } catch (e) {
+          // 最后的fallback
+        }
+      }
+
+      if (!passwordInput) {
+        // 截图以便调试
+        await this.saveErrorScreenshot(page, email);
+        throw new Error('未找到密码输入框，可能是邮箱验证失败、出现验证码或页面加载问题');
+      }
+
+      log('填写密码...');
+      await passwordInput.type(password, { delay: 100 });
 
       await this.delay(500);
 
