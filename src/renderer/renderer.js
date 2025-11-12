@@ -18,6 +18,7 @@ const accountInfo = document.getElementById('account-info');
 const accountsBtn = document.getElementById('accounts-btn');
 const composeBtn = document.getElementById('compose-btn');
 const syncBtn = document.getElementById('sync-btn');
+const syncAllBtn = document.getElementById('sync-all-btn');
 const mailListContainer = document.getElementById('mail-list-container');
 const loading = document.getElementById('loading');
 const mailDetailEmpty = document.getElementById('mail-detail-empty');
@@ -702,6 +703,73 @@ async function syncMessages(showAlert = true, expectedAccountId = null) {
   }
 }
 
+// 同步所有账号的邮件
+async function syncAllAccounts() {
+  // 禁用按钮防止重复点击
+  syncAllBtn.disabled = true;
+  syncAllBtn.textContent = '🔄 同步中...';
+
+  loading.classList.remove('hidden');
+  mailListContainer.innerHTML = '';
+
+  try {
+    // 获取所有账号
+    const accountsResult = await window.gmailAPI.account.getAll();
+
+    if (!accountsResult.success || !accountsResult.accounts || accountsResult.accounts.length === 0) {
+      alert('没有可同步的账号');
+      syncAllBtn.disabled = false;
+      syncAllBtn.textContent = '🔄 同步所有';
+      loading.classList.add('hidden');
+      return;
+    }
+
+    const accounts = accountsResult.accounts;
+    const totalAccounts = accounts.length;
+
+    console.log(`开始同步 ${totalAccounts} 个账号的邮件...`);
+
+    // 调用批量同步 API
+    const result = await window.gmailAPI.syncAllMessages(50);
+
+    loading.classList.add('hidden');
+    syncAllBtn.disabled = false;
+    syncAllBtn.textContent = '🔄 同步所有';
+
+    if (result.success) {
+      const { totalAccounts, successCount, failedCount, results } = result;
+
+      // 构建详细消息
+      let message = `同步完成！\n\n`;
+      message += `总账号数: ${totalAccounts}\n`;
+      message += `成功: ${successCount} 个\n`;
+      if (failedCount > 0) {
+        message += `失败: ${failedCount} 个\n\n`;
+        message += `失败详情:\n`;
+        results.filter(r => !r.success).forEach(r => {
+          message += `- ${r.email}: ${r.error}\n`;
+        });
+      }
+
+      alert(message);
+
+      // 重新加载当前账号的邮件列表
+      const activeAccount = await window.gmailAPI.account.getActive();
+      if (activeAccount.success && activeAccount.account) {
+        await loadMessages(activeAccount.account.id);
+      }
+    } else {
+      alert('批量同步失败: ' + result.error);
+    }
+  } catch (error) {
+    loading.classList.add('hidden');
+    syncAllBtn.disabled = false;
+    syncAllBtn.textContent = '🔄 同步所有';
+    alert('批量同步失败: ' + error.message);
+    console.error('批量同步错误:', error);
+  }
+}
+
 // 加载邮件列表（从数据库）
 async function loadMessages(expectedAccountId = null) {
   loading.classList.remove('hidden');
@@ -1107,6 +1175,9 @@ replyBtn.addEventListener('click', () => {
 
 // 同步按钮
 syncBtn.addEventListener('click', syncMessages);
+
+// 同步所有邮箱按钮
+syncAllBtn.addEventListener('click', syncAllAccounts);
 
 // 写邮件按钮
 composeBtn.addEventListener('click', () => {

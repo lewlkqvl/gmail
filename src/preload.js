@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('gmailAPI', {
 
   // 邮件操作
   syncMessages: (maxResults, expectedAccountId) => ipcRenderer.invoke('gmail:syncMessages', maxResults, expectedAccountId),
+  syncAllMessages: (maxResults) => ipcRenderer.invoke('gmail:syncAllMessages', maxResults),
   listMessages: (maxResults, expectedAccountId) => ipcRenderer.invoke('gmail:listMessages', maxResults, expectedAccountId),
   getMessage: (messageId) => ipcRenderer.invoke('gmail:getMessage', messageId),
   sendMessage: (messageData, expectedAccountId) => ipcRenderer.invoke('gmail:sendMessage', messageData, expectedAccountId),
