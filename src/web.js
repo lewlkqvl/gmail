@@ -158,6 +158,96 @@ class WebServer {
       }
     });
 
+    // 同步所有账号的邮件（批量同步）
+    this.app.post('/api/gmail/syncAllMessages', async (req, res) => {
+      try {
+        console.log('[Web] 开始批量同步所有账号的邮件...');
+
+        const { maxResults = 50 } = req.body;
+
+        // 获取所有账号
+        const accounts = this.dbService.getAllAccounts();
+
+        if (!accounts || accounts.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: '没有可同步的账号'
+          });
+        }
+
+        console.log(`[Web] 找到 ${accounts.length} 个账号，开始逐个同步...`);
+
+        const results = [];
+        let successCount = 0;
+        let failedCount = 0;
+
+        // 逐个同步每个账号
+        for (let i = 0; i < accounts.length; i++) {
+          const account = accounts[i];
+          console.log(`[Web] [${i + 1}/${accounts.length}] 同步账号: ${account.email}`);
+
+          try {
+            // 检查账号是否有 access_token
+            if (!account.access_token) {
+              console.log(`[Web] 跳过账号 ${account.email}: 未授权`);
+              results.push({
+                email: account.email,
+                success: false,
+                error: '账号未授权',
+                messageCount: 0
+              });
+              failedCount++;
+              continue;
+            }
+
+            // 使用 gmailService 的 syncMessagesForAccount 方法同步
+            const messages = await this.gmailService.syncMessagesForAccount(account, maxResults);
+
+            console.log(`[Web] ✓ 账号 ${account.email} 同步成功: ${messages.length} 封邮件`);
+
+            results.push({
+              email: account.email,
+              success: true,
+              messageCount: messages.length
+            });
+            successCount++;
+
+          } catch (error) {
+            console.error(`[Web] ✗ 账号 ${account.email} 同步失败:`, error.message);
+            results.push({
+              email: account.email,
+              success: false,
+              error: error.message,
+              messageCount: 0
+            });
+            failedCount++;
+          }
+
+          // 短暂延迟，避免请求过快
+          if (i < accounts.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+
+        console.log(`[Web] 批量同步完成: 成功 ${successCount}/${accounts.length}, 失败 ${failedCount}`);
+
+        res.json({
+          success: true,
+          totalAccounts: accounts.length,
+          successCount,
+          failedCount,
+          results
+        });
+
+      } catch (error) {
+        console.error('[Web] 批量同步失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
     // 获取邮件列表
     this.app.get('/api/gmail/listMessages', async (req, res) => {
       try {

@@ -279,6 +279,94 @@ function setupIpcHandlers() {
     }
   });
 
+  // 同步所有账号的邮件（批量同步）
+  ipcMain.handle('gmail:syncAllMessages', async (event, maxResults = 50) => {
+    try {
+      console.log('[Main] 开始批量同步所有账号的邮件...');
+
+      // 获取所有账号
+      const accounts = dbService.getAllAccounts();
+
+      if (!accounts || accounts.length === 0) {
+        return {
+          success: false,
+          error: '没有可同步的账号'
+        };
+      }
+
+      console.log(`[Main] 找到 ${accounts.length} 个账号，开始逐个同步...`);
+
+      const results = [];
+      let successCount = 0;
+      let failedCount = 0;
+
+      // 逐个同步每个账号
+      for (let i = 0; i < accounts.length; i++) {
+        const account = accounts[i];
+        console.log(`[Main] [${i + 1}/${accounts.length}] 同步账号: ${account.email}`);
+
+        try {
+          // 检查账号是否有 access_token
+          if (!account.access_token) {
+            console.log(`[Main] 跳过账号 ${account.email}: 未授权`);
+            results.push({
+              email: account.email,
+              success: false,
+              error: '账号未授权',
+              messageCount: 0
+            });
+            failedCount++;
+            continue;
+          }
+
+          // 使用 gmailService 的 syncMessagesForAccount 方法同步
+          const messages = await gmailService.syncMessagesForAccount(account, maxResults);
+
+          console.log(`[Main] ✓ 账号 ${account.email} 同步成功: ${messages.length} 封邮件`);
+
+          results.push({
+            email: account.email,
+            success: true,
+            messageCount: messages.length
+          });
+          successCount++;
+
+        } catch (error) {
+          console.error(`[Main] ✗ 账号 ${account.email} 同步失败:`, error.message);
+          results.push({
+            email: account.email,
+            success: false,
+            error: error.message,
+            messageCount: 0
+          });
+          failedCount++;
+        }
+
+        // 短暂延迟，避免请求过快
+        if (i < accounts.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      console.log(`[Main] 批量同步完成: 成功 ${successCount}/${accounts.length}, 失败 ${failedCount}`);
+
+      return {
+        success: true,
+        totalAccounts: accounts.length,
+        successCount,
+        failedCount,
+        results
+      };
+
+    } catch (error) {
+      console.error('[Main] 批量同步失败:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  });
+
   // 获取邮件列表（从数据库读取）
   ipcMain.handle('gmail:listMessages', async (event, maxResults = 50, expectedAccountId = null) => {
     try {
