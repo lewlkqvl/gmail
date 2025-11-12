@@ -132,6 +132,7 @@ class AutoLoginService {
         'input[placeholder*="验证码"]',       // 中文验证码输入框
         'input[placeholder*="verification"]', // 英文验证码输入框
         'input[aria-label*="验证码"]',        // aria-label 验证码
+        '#captchaimg',                         // 验证码图片
 
         // 通用验证标识
         '[aria-label*="captcha"]',           // aria-label 包含 captcha
@@ -373,15 +374,15 @@ class AutoLoginService {
         window.__originalConfirm = window.confirm;
 
         // 覆盖函数
-        window.alert = function(message) {
+        window.alert = function (message) {
           console.log('[Blocked Alert]:', message);
           return undefined;
         };
-        window.prompt = function(message, defaultValue) {
+        window.prompt = function (message, defaultValue) {
           console.log('[Blocked Prompt]:', message, defaultValue);
           return null;
         };
-        window.confirm = function(message) {
+        window.confirm = function (message) {
           console.log('[Blocked Confirm]:', message);
           return true;
         };
@@ -693,7 +694,22 @@ class AutoLoginService {
       if (!clicked) {
         log('未找到授权按钮，尝试等待跳转...');
       }
-
+      await page.waitForSelector('::-p-xapth(//*[@id="yDmH0d"]/div[1]/div[1]/a)', { timeout: 3000 }).then(
+        async (link) => {
+          await link.click();
+          return true;
+        }
+      ).catch(() => null);
+      await page.waitForNavigation('::-p-xapth(//*[@id="yDmH0d"]/div[1]/div[2]/p[2]/a)', { timeout: 1000 }).then(async (link) => {
+        log('已点击继续...');
+        await link.click();
+        return true;
+      }).catch(() => null);
+      await page.waitForSelector('::-p-xapth(//*[@id="submit_approve_access"]/div/button)', { timeout: 1500 }).then(async (link) => {
+        log('已点击继续...');
+        await link.click();
+        return true;
+      }).catch(() => null);
       // 等待重定向到回调地址
       log('等待授权回调...');
 
